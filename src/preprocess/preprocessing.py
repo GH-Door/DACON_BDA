@@ -6,6 +6,7 @@ from sklearn.preprocessing import (
     MinMaxScaler, RobustScaler, StandardScaler,
     LabelEncoder, OrdinalEncoder, OneHotEncoder
 )
+from category_encoders import TargetEncoder
 warnings.filterwarnings('ignore')
 
 
@@ -39,7 +40,8 @@ class Preprocessor:
 
     # encoder
     def encoder(self, df: pd.DataFrame, columns: list[str],
-               method: str = 'label', fit: bool = True, drop_first: bool = True) -> pd.DataFrame:
+               method: str = 'label', fit: bool = True,
+               drop_first: bool = True, categories: list[list[str]] = None) -> pd.DataFrame:
 
         cols = [c for c in columns if c in df.columns]
         if not cols:
@@ -57,11 +59,16 @@ class Preprocessor:
                 df.loc[mask, col] = df.loc[mask, col].astype(str).apply(
                     lambda x, k=known, e=le: e.transform([x])[0] if x in k else -1
                 )
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(-1).astype(int)
 
         elif method == 'ordinal':
             key = '_ordinal_'
             if fit:
-                oe = OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=-1)
+                oe = OrdinalEncoder(
+                    categories=categories if categories else 'auto',
+                    handle_unknown='use_encoded_value',
+                    unknown_value=-1,
+                )
                 oe.fit(df[cols].astype(str))
                 self.encoders[key] = oe
             df[cols] = self.encoders[key].transform(df[cols].astype(str))
@@ -78,6 +85,27 @@ class Preprocessor:
             feature_names = ohe.get_feature_names_out(cols)
             df = df.drop(columns=cols)
             df[feature_names] = encoded
+
+        return df
+
+    # target encoder
+    def target_encoder(self, df: pd.DataFrame, columns: list[str], y: pd.Series = None,
+                       fit: bool = True, min_samples_leaf: int = 5,
+                       smoothing: float = 10.0) -> pd.DataFrame:
+        cols = [c for c in columns if c in df.columns]
+        if not cols:
+            return df
+
+        for c in cols:
+            df[c] = df[c].astype(str)
+
+        key = '_target_enc_'
+        if fit:
+            te = TargetEncoder(cols=cols, min_samples_leaf=min_samples_leaf, smoothing=smoothing)
+            df[cols] = te.fit_transform(df[cols], y)
+            self.encoders[key] = te
+        else:
+            df[cols] = self.encoders[key].transform(df[cols])
 
         return df
 

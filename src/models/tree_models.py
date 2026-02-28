@@ -50,7 +50,7 @@ class BaseTreeModel(ABC):
                 best_t = t
         return best_t, best_f1
 
-    def fit(self, X: pd.DataFrame, y: pd.Series) -> dict:
+    def fit(self, X: pd.DataFrame, y: pd.Series, pipeline=None) -> dict:
         skf = StratifiedKFold(n_splits=self.n_splits, shuffle=True, random_state=self.random_state)
         self.oof_preds = np.zeros(len(X))
         self.models = []
@@ -61,6 +61,9 @@ class BaseTreeModel(ABC):
         )):
             X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
             y_train, y_val = y.iloc[train_idx], y.iloc[val_idx]
+
+            if pipeline is not None:
+                X_train, X_val, _ = pipeline.encode_fold(X_train, y_train, X_val)
 
             model = self._create_model()
             self._fit_model(model, X_train, y_train, X_val, y_val)
@@ -268,10 +271,10 @@ class ModelComparator:
         self.models = models
         self.results = []
 
-    def run(self, X: pd.DataFrame, y: pd.Series) -> pd.DataFrame:
+    def run(self, X: pd.DataFrame, y: pd.Series, pipeline=None) -> pd.DataFrame:
         self.results = []
         for model in self.models:
-            result = model.fit(X, y)
+            result = model.fit(X, y, pipeline=pipeline)
             self.results.append(result)
             print(f"  → {result['name']}: OOF F1={result['oof_f1']}, "
                   f"Mean Fold F1={result['mean_fold_f1']}±{result['std_fold_f1']}, "
