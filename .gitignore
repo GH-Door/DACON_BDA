@@ -21,4 +21,6 @@ catboost_info/
 submissions/
 
 # dataset
-dataset/
+dataset/sample_submission.csv
+dataset/test.csv
+dataset/train.csv

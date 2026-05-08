@@ -190,7 +190,7 @@ def kde_plot(df, col, ax=None, figsize=(10, 6), color='steelblue', fill=True, al
     return ax
 
 
-def heatmap_plot(df, ax=None, figsize=(10, 8), cmap='Blues', annot=True, fmt='.2f', linewidths=0.5, cbar=True, mask=None, title=None, xlabel=None, ylabel=None, rotation_x=45, rotation_y=0, show=True):
+def heatmap_plot(df, ax=None, figsize=(10, 8), cmap='Blues', annot=True, fmt='.2f', linewidths=0.5, cbar=True, mask=None, title=None, xlabel=None, ylabel=None, rotation_x=0, rotation_y=0, show=True, target=None, precomputed=False, show_labels=True):
     """
     히트맵 시각화 (상관행렬 자동 계산)
     - df: DataFrame (수치형 컬럼만 추출하여 상관행렬 계산)
@@ -201,8 +201,56 @@ def heatmap_plot(df, ax=None, figsize=(10, 8), cmap='Blues', annot=True, fmt='.2
     - cbar: True면 컬러바 표시
     - mask: 'upper' (상삼각 마스크), 'lower' (하삼각 마스크), None (마스크 없음)
     - rotation_x, rotation_y: x축, y축 레이블 회전 각도
+    - target: 지정 시 해당 컬럼과의 상관계수만 세로 히트맵으로 표시
+    - precomputed: True면 df를 그대로 사용 (corr() 계산 생략)
+    - show_labels: False면 x/y축 변수명 숨김
     """
-    corr = df.select_dtypes(include=['number']).corr()
+    if precomputed:
+        if ax is None:
+            plt.figure(figsize=figsize)
+            ax = plt.gca()
+        sns.heatmap(df, annot=annot, fmt=fmt, cmap=cmap, linewidths=linewidths, cbar=cbar, ax=ax)
+        ax.set_title(title if title else 'Heatmap')
+        if xlabel:
+            ax.set_xlabel(xlabel)
+        if ylabel:
+            ax.set_ylabel(ylabel)
+        if rotation_x:
+            ax.tick_params(axis='x', rotation=rotation_x)
+        if rotation_y:
+            ax.tick_params(axis='y', rotation=rotation_y)
+        if not show_labels:
+            ax.set_xticklabels([])
+            ax.set_yticklabels([])
+        if show:
+            plt.tight_layout()
+            plt.show()
+        return ax
+
+    num_df = df.select_dtypes(include=['number'])
+
+    if target:
+        corr = num_df.corr()[[target]].drop(index=target, errors='ignore').sort_values(target, ascending=False)
+        corr = corr.dropna()
+        if ax is None:
+            plt.figure(figsize=figsize if figsize != (10, 8) else (3, len(corr) * 0.5 + 1))
+            ax = plt.gca()
+        sns.heatmap(corr, annot=annot, fmt=fmt, cmap=cmap, linewidths=linewidths,
+                    cbar=cbar, vmin=-1, vmax=1, ax=ax)
+        ax.set_title(title if title else f'Correlation with {target}')
+        if rotation_y:
+            ax.tick_params(axis='y', rotation=rotation_y)
+        ax.tick_params(axis='x', rotation=0)
+        if not show_labels:
+            ax.set_xticklabels([])
+            ax.set_yticklabels([])
+        if show:
+            plt.tight_layout()
+            plt.show()
+        return ax
+
+    corr = num_df.corr()
+    corr = corr.dropna(how='all').dropna(axis=1, how='all')
 
     # 삼각 마스크 생성
     if mask == 'upper':
@@ -228,6 +276,9 @@ def heatmap_plot(df, ax=None, figsize=(10, 8), cmap='Blues', annot=True, fmt='.2
         ax.tick_params(axis='x', rotation=rotation_x)
     if rotation_y:
         ax.tick_params(axis='y', rotation=rotation_y)
+    if not show_labels:
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
 
     if show:
         plt.tight_layout()
