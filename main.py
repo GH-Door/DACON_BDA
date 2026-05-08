@@ -2,11 +2,12 @@
 """BDA 수료 예측 파이프라인
 
 CLI:
-    python main.py preprocess                               # 전처리만
-    python main.py compare                                  # 전처리 + 모델 비교
-    python main.py tune   --model catboost --trials 200     # 전처리 + 튜닝
-    python main.py predict --model catboost --version v1    # 전처리 + 튜닝 + 예측
-    python main.py run    --model catboost --trials 200 --version v1  # 전체
+    python main.py preprocess                                              # 전처리만
+    python main.py compare                                                 # 전처리 + 모델 비교
+    python main.py tune   --model catboost --trials 200                    # 전처리 + 튜닝
+    python main.py predict --model catboost --trials 200 --version v1     # 전처리 + 튜닝 + 예측
+    python main.py run    --model catboost --trials 200 --version v1      # 전체 (모델 비교 포함)
+    python main.py run    --model catboost --trials 200 --version v1 --skip-compare  # 비교 생략
 
 Jupyter:
     from main import Runner
@@ -75,10 +76,11 @@ class Runner:
         )
 
     def run(self, model: str = 'catboost', n_trials: int = 100,
-            version: str = 'v1') -> tuple:
-        """전체 파이프라인 (전처리 → 모델 비교 → 튜닝 → 예측)."""
+            version: str = 'v1', skip_compare: bool = False) -> tuple:
+        """전체 파이프라인 (전처리 → [모델 비교] → 튜닝 → 예측)."""
         self.preprocess()
-        self.compare()
+        if not skip_compare:
+            self.compare()
         self.tune(model=model, n_trials=n_trials)
         return self.predict(model=model, version=version)
 
@@ -116,6 +118,9 @@ def _build_parser() -> argparse.ArgumentParser:
         sp.add_argument('--trials',  type=int, default=100, metavar='N')
         if cmd in ('predict', 'run'):
             sp.add_argument('--version', default='v1')
+        if cmd == 'run':
+            sp.add_argument('--skip-compare', action='store_true',
+                            help='모델 비교 단계 생략')
 
     return p
 
@@ -138,7 +143,11 @@ def main():
         runner.predict(model=args.model, version=args.version)
 
     elif args.cmd == 'run':
-        runner.run(model=args.model, n_trials=args.trials, version=args.version)
+        runner.preprocess()
+        if not args.skip_compare:
+            runner.compare()
+        runner.tune(model=args.model, n_trials=args.trials)
+        runner.predict(model=args.model, version=args.version)
 
 
 if __name__ == '__main__':

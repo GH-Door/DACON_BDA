@@ -24,3 +24,7 @@ submissions/
 dataset/sample_submission.csv
 dataset/test.csv
 dataset/train.csv
+
+# jupyter (baseline, final_submission 제외)
+jupyter/tuning.ipynb
+jupyter/ensemble.ipynb
